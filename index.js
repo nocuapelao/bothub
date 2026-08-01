@@ -66,7 +66,7 @@ app.get("/", (req, res) => {
         <div style="text-align:center;">
           <h1>🤖 Bot Online</h1>
           <p>Status: <span style="color:#3ba55d;">● Rodando</span></p>
-          <p style="color:#8b95a8;font-size:0.9rem;">NaRisca RJ — Whitelist</p>
+          <p style="color:#8b95a8;font-size:0.9rem;">Ousadia RJ — Whitelist</p>
         </div>
       </body>
     </html>
@@ -99,7 +99,7 @@ const client = new Client({
 client.once(Events.ClientReady, (c) => {
   console.log(`✅ Bot logado como ${c.user.tag}`);
   console.log(`📡 Servidores: ${c.guilds.cache.size}`);
-  client.user.setActivity("NaRisca RJ", { type: ActivityType.Watching });
+  client.user.setActivity("Ousadia RJ", { type: ActivityType.Watching });
 });
 
 client.on(Events.GuildCreate, (guild) => {
@@ -113,15 +113,15 @@ client.on(Events.GuildCreate, (guild) => {
 function createWhitelistPanel() {
   const embed = new EmbedBuilder()
     .setColor(0xE74C3C) // borda vermelha
-    .setTitle("🔓 Liberação de ID — NaRisca RJ")
+    .setTitle("🔓 Liberação de ID — Ousadia RJ")
     .setDescription(
-      "Seja bem-vindo(a) a **NaRisca RJ**.\n" +
+      "Seja bem-vindo(a) a **Ousadia RJ**.\n" +
         "Para acessar o servidor basta realizar a liberação do seu ID seguindo os passos abaixo.\n\n" +
         "• Para liberar seu ID basta apertar no botão **Liberar ID** e digitar o ID informado no jogo.\n" +
         "• Após colocar seu ID, aguarde a liberação do sistema.\n" +
         "• Você não sabe qual é seu ID? Entre no servidor, conecte-se e aguarde o aviso na tela."
     )
-    .setFooter({ text: "NaRisca RJ • Sistema de Whitelist" })
+    .setFooter({ text: "Ousadia RJ • Sistema de Whitelist" })
     .setTimestamp();
 
   // Imagem no canto superior direito (thumbnail)
@@ -197,7 +197,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.isButton() && interaction.customId === "liberar_id") {
     const modal = new ModalBuilder()
       .setCustomId("modal_liberar_id")
-      .setTitle("Liberação de ID — NaRisca RJ");
+      .setTitle("Liberação de ID — Ousadia RJ");
 
     const nomeInput = new TextInputBuilder()
       .setCustomId("nome")
@@ -251,7 +251,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
               { name: "ID do jogo", value: `\`${idJogo}\``, inline: true }
             )
             .setThumbnail(interaction.user.displayAvatarURL())
-            .setFooter({ text: "NaRisca RJ • Whitelist" })
+            .setFooter({ text: "Ousadia RJ • Whitelist" })
             .setTimestamp();
 
           await logChannel.send({ embeds: [logEmbed] });
