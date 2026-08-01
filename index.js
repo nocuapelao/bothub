@@ -19,25 +19,23 @@ const express = require("express");
 const TOKEN = process.env.DISCORD_TOKEN;
 const PORT = process.env.PORT || 3000;
 
-// Whitelist de servidores (vazio = todos)
 const GUILD_WHITELIST = (process.env.GUILD_WHITELIST || "")
   .split(",")
   .map((id) => id.trim())
   .filter(Boolean);
 
-// IDs dos donos/admins do bot
 const USER_WHITELIST = (process.env.USER_WHITELIST || "")
   .split(",")
   .map((id) => id.trim())
   .filter(Boolean);
 
-// Canal onde as solicitações de liberação serão enviadas
+// Canal de logs das solicitações
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || "";
 
-// URL da imagem do painel (328x328) - coloque o link direto do PNG
+// URL da imagem do painel (canto superior direito)
 const PANEL_IMAGE_URL = process.env.PANEL_IMAGE_URL || "";
 
-// Cargo que será dado automaticamente após solicitar (opcional)
+// Cargo dado automaticamente quando a pessoa envia o ID
 const AUTO_ROLE_ID = process.env.AUTO_ROLE_ID || "";
 
 if (!TOKEN) {
@@ -53,6 +51,11 @@ function isGuildAllowed(guildId) {
 function isUserAllowed(userId) {
   if (USER_WHITELIST.length === 0) return true;
   return USER_WHITELIST.includes(userId);
+}
+
+// Só números no ID
+function isOnlyNumbers(str) {
+  return /^\d+$/.test(str);
 }
 
 // ==================== KEEP-ALIVE ====================
@@ -99,6 +102,7 @@ const client = new Client({
 client.once(Events.ClientReady, (c) => {
   console.log(`✅ Bot logado como ${c.user.tag}`);
   console.log(`📡 Servidores: ${c.guilds.cache.size}`);
+  if (AUTO_ROLE_ID) console.log(`🎭 Auto-role configurado: ${AUTO_ROLE_ID}`);
   client.user.setActivity("Ousadia RJ", { type: ActivityType.Watching });
 });
 
@@ -109,10 +113,10 @@ client.on(Events.GuildCreate, (guild) => {
   }
 });
 
-// ==================== PAINEL DE WHITELIST ====================
+// ==================== PAINEL ====================
 function createWhitelistPanel() {
   const embed = new EmbedBuilder()
-    .setColor(0xE74C3C) // borda vermelha
+    .setColor(0xE74C3C)
     .setTitle("🔓 Liberação de ID — Ousadia RJ")
     .setDescription(
       "Seja bem-vindo(a) a **Ousadia RJ**.\n" +
@@ -124,7 +128,6 @@ function createWhitelistPanel() {
     .setFooter({ text: "Ousadia RJ • Sistema de Whitelist" })
     .setTimestamp();
 
-  // Imagem no canto superior direito (thumbnail)
   if (PANEL_IMAGE_URL) {
     embed.setThumbnail(PANEL_IMAGE_URL);
   }
@@ -133,14 +136,13 @@ function createWhitelistPanel() {
     new ButtonBuilder()
       .setCustomId("liberar_id")
       .setLabel("Liberar ID")
-      .setStyle(ButtonStyle.Success) // verde
+      .setStyle(ButtonStyle.Success)
       .setEmoji("✅")
   );
 
   return { embeds: [embed], components: [row] };
 }
 
-// Comando para enviar o painel (!painel)
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
   if (!message.guild) return;
@@ -157,12 +159,8 @@ client.on(Events.MessageCreate, async (message) => {
       return message.reply("❌ Você não tem permissão para enviar o painel.");
     }
 
-    const panel = createWhitelistPanel();
-    await message.channel.send(panel);
-
-    if (message.deletable) {
-      message.delete().catch(() => {});
-    }
+    await message.channel.send(createWhitelistPanel());
+    if (message.deletable) message.delete().catch(() => {});
     return;
   }
 
@@ -209,11 +207,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     const idInput = new TextInputBuilder()
       .setCustomId("id_jogo")
-      .setLabel("ID")
-      .setPlaceholder("Digite o ID informado no jogo")
+      .setLabel("ID (somente números)")
+      .setPlaceholder("Digite apenas números")
       .setStyle(TextInputStyle.Short)
       .setRequired(true)
-      .setMaxLength(30);
+      .setMaxLength(20);
 
     modal.addComponents(
       new ActionRowBuilder().addComponents(nomeInput),
@@ -225,8 +223,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (interaction.isModalSubmit() && interaction.customId === "modal_liberar_id") {
-    const nome = interaction.fields.getTextInputValue("nome");
-    const idJogo = interaction.fields.getTextInputValue("id_jogo");
+    const nome = interaction.fields.getTextInputValue("nome").trim();
+    const idJogo = interaction.fields.getTextInputValue("id_jogo").trim();
+
+    // Bloqueia letras no ID
+    if (!isOnlyNumbers(idJogo)) {
+      return interaction.reply({
+        content: "❌ O **ID** deve conter **apenas números**.\nTente novamente clicando no botão **Liberar ID**.",
+        ephemeral: true
+      });
+    }
 
     await interaction.reply({
       content:
@@ -237,6 +243,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       ephemeral: true
     });
 
+    // Log no canal de staff
     if (LOG_CHANNEL_ID) {
       try {
         const logChannel = await client.channels.fetch(LOG_CHANNEL_ID);
@@ -261,12 +268,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
 
-    if (AUTO_ROLE_ID && interaction.member) {
+    // Dar o cargo configurado em AUTO_ROLE_ID
+    if (AUTO_ROLE_ID && interaction.guild && interaction.member) {
       try {
-        await interaction.member.roles.add(AUTO_ROLE_ID);
-        console.log(`Cargo ${AUTO_ROLE_ID} dado para ${interaction.user.tag}`);
+        const role = interaction.guild.roles.cache.get(AUTO_ROLE_ID);
+        if (!role) {
+          console.error(`❌ Cargo não encontrado: ${AUTO_ROLE_ID}`);
+        } else {
+          await interaction.member.roles.add(role);
+          console.log(`✅ Cargo "${role.name}" dado para ${interaction.user.tag}`);
+        }
       } catch (err) {
         console.error("Erro ao dar cargo:", err.message);
+        console.error("→ Verifique se o bot tem permissão de Gerenciar Cargos e se o cargo dele está ACIMA do cargo que ele vai dar.");
       }
     }
 
